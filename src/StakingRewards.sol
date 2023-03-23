@@ -87,13 +87,13 @@ contract StakingRewards {
         uint256 _amount
     ) external onlyOwner updateReward(address(0)) {
         if (block.timestamp > finishAt) {
-            rewardRate = _amount / duration;
+            rewardRate = (_amount * duration) / duration;
         } else {
             // remainingRewards = rewardRate * amount of time until rewards end
             uint256 remainingRewards = rewardRate *
                 (finishAt - block.timestamp);
 
-            rewardRate = (remainingRewards + _amount) / duration;
+            rewardRate = (remainingRewards + _amount * duration) / duration;
         }
 
         require(rewardRate > 0, "reward rate = 0");
