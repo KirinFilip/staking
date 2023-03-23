@@ -4,6 +4,10 @@ pragma solidity 0.8.17;
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract StakingRewards {
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice token user deposits for staking
     IERC20 public immutable stakingToken;
     /// @notice token user can withdraw for depositing the staking token
@@ -31,6 +35,17 @@ contract StakingRewards {
     /// @notice staking token per user
     mapping(address => uint256) public balanceOf;
 
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event Stake(address user, uint256 amount);
+    event Withdraw(address user, uint256 amount);
+
+    /*//////////////////////////////////////////////////////////////
+                               MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
         _;
@@ -47,6 +62,10 @@ contract StakingRewards {
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                               FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     constructor(address _stakingToken, address _rewardsToken) {
         owner = msg.sender;
         stakingToken = IERC20(_stakingToken);
@@ -61,6 +80,9 @@ contract StakingRewards {
         duration = _duration;
     }
 
+    /// @notice Specify the reward rate
+    /// @dev Only owner is able to set reward rate
+    /// @param _amount amount of rewards to be paid for the duration
     function notifyRewardAmount(
         uint256 _amount
     ) external onlyOwner updateReward(address(0)) {
@@ -85,24 +107,35 @@ contract StakingRewards {
         updatedAt = block.timestamp;
     }
 
+    /// @notice Stake staking tokens to be able to get rewards
+    /// @param _amount amount of staking token to deposit
     function stake(uint256 _amount) external updateReward(msg.sender) {
         require(_amount > 0, "amount = 0");
         stakingToken.transferFrom(msg.sender, address(this), _amount);
         balanceOf[msg.sender] += _amount;
         totalSupply += _amount;
+
+        emit Stake(msg.sender, _amount);
     }
 
+    /// @notice Withdraw tokens a user has staked
+    /// @param _amount amount of staking token to withdraw
     function withdraw(uint256 _amount) external updateReward(msg.sender) {
         require(_amount > 0, "amount = 0");
+
         balanceOf[msg.sender] -= _amount;
         totalSupply -= _amount;
+
         stakingToken.transfer(msg.sender, _amount);
+
+        emit Withdraw(msg.sender, _amount);
     }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
         return _min(block.timestamp, finishAt);
     }
 
+    /// @notice Get reward amount per one staking token
     function rewardPerToken() public view returns (uint256) {
         if (totalSupply == 0) {
             return rewardPerTokenStored;
@@ -113,6 +146,9 @@ contract StakingRewards {
             totalSupply;
     }
 
+    /// @notice Get the earned amount of tokens for '_account'
+    /// @param _account Address of the staker
+    /// @return Amount of rewards that was earned by the '_account'
     function earned(address _account) public view returns (uint256) {
         return
             (balanceOf[_account] *
@@ -121,7 +157,9 @@ contract StakingRewards {
             rewards[_account];
     }
 
-    function getReward() external updateReward(msg.sender) {
+    /// @notice Claim the reward tokens
+    /// @dev Explain to a developer any extra details
+    function claimReward() external updateReward(msg.sender) {
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
