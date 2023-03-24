@@ -112,3 +112,101 @@ contract NotifyRewardAmount is Test {
         stakingRewards.notifyRewardAmount(rewardsTokenAmount / duration + 1);
     }
 }
+
+contract StakeWithdraw is Test {
+    ERC20 public stakingToken;
+    ERC20 public rewardsToken;
+    StakingRewards public stakingRewards;
+
+    address alice = makeAddr("Alice");
+    address bob = makeAddr("Bob");
+    address charlie = makeAddr("Charlie");
+
+    uint256 rewardsTokenAmount = 1_000_000e18;
+    uint256 stakingTokenAmount = 1_000_000e18;
+
+    function setUp() public {
+        stakingToken = new ERC20("Staking Token", "STAKE");
+        rewardsToken = new ERC20("Rewards Token", "RWRD");
+        stakingRewards = new StakingRewards(
+            address(stakingToken),
+            address(rewardsToken)
+        );
+
+        deal(
+            address(rewardsToken),
+            address(stakingRewards),
+            rewardsTokenAmount
+        );
+        deal(address(stakingToken), alice, stakingTokenAmount);
+        deal(address(stakingToken), bob, stakingTokenAmount);
+        deal(address(stakingToken), charlie, stakingTokenAmount);
+    }
+
+    function testFuzz_Stake(uint256 amount) public {
+        amount = bound(amount, 1, stakingTokenAmount);
+        vm.startPrank(alice);
+        stakingToken.approve(address(stakingRewards), type(uint256).max);
+        stakingRewards.stake(amount);
+
+        assertEq(stakingRewards.balanceOf(address(alice)), amount);
+        assertEq(stakingRewards.totalSupply(), amount);
+    }
+
+    function testFuzz_StakeThreeTimes(uint256 amount) public {
+        amount = bound(amount, 1, stakingTokenAmount);
+        vm.startPrank(alice);
+        stakingToken.approve(address(stakingRewards), type(uint256).max);
+        stakingRewards.stake(amount);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        stakingToken.approve(address(stakingRewards), type(uint256).max);
+        stakingRewards.stake(amount);
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        stakingToken.approve(address(stakingRewards), type(uint256).max);
+        stakingRewards.stake(amount);
+        vm.stopPrank();
+
+        assertEq(stakingRewards.balanceOf(address(alice)), amount);
+        assertEq(stakingRewards.balanceOf(address(bob)), amount);
+        assertEq(stakingRewards.balanceOf(address(charlie)), amount);
+        assertEq(stakingRewards.totalSupply(), amount * 3);
+    }
+
+    function test_RevertWhenStakeAmountZero() public {
+        vm.expectRevert("amount = 0");
+        stakingRewards.stake(0);
+    }
+
+    function testFuzz_WithdrawThreeTimes(uint256 amount) public {
+        testFuzz_StakeThreeTimes(amount);
+
+        amount = bound(amount, 1, stakingTokenAmount);
+
+        vm.prank(alice);
+        stakingRewards.withdraw(amount);
+        assertEq(stakingRewards.balanceOf(address(alice)), 0);
+
+        vm.prank(bob);
+        stakingRewards.withdraw(amount);
+        assertEq(stakingRewards.balanceOf(address(bob)), 0);
+
+        vm.prank(charlie);
+        stakingRewards.withdraw(amount);
+        assertEq(stakingRewards.balanceOf(address(charlie)), 0);
+
+        assertEq(stakingRewards.totalSupply(), 0);
+    }
+
+    function test_RevertWhenWithdrawAmountZero() public {
+        vm.startPrank(alice);
+        stakingToken.approve(address(stakingRewards), type(uint256).max);
+        stakingRewards.stake(1);
+        vm.stopPrank();
+        vm.expectRevert("amount = 0");
+        stakingRewards.withdraw(0);
+    }
+}
