@@ -112,8 +112,8 @@ contract StakingRewards {
     function stake(uint256 _amount) external updateReward(msg.sender) {
         require(_amount > 0, "amount = 0");
         stakingToken.transferFrom(msg.sender, address(this), _amount);
-        balanceOf[msg.sender] += _amount;
-        totalSupply += _amount;
+        balanceOf[msg.sender] = balanceOf[msg.sender] + _amount;
+        totalSupply = totalSupply + _amount;
 
         emit Stake(msg.sender, _amount);
     }
@@ -123,8 +123,8 @@ contract StakingRewards {
     function withdraw(uint256 _amount) external updateReward(msg.sender) {
         require(_amount > 0, "amount = 0");
 
-        balanceOf[msg.sender] -= _amount;
-        totalSupply -= _amount;
+        balanceOf[msg.sender] = balanceOf[msg.sender] - _amount;
+        totalSupply = totalSupply - _amount;
 
         stakingToken.transfer(msg.sender, _amount);
 
@@ -158,7 +158,6 @@ contract StakingRewards {
     }
 
     /// @notice Claim the reward tokens
-    /// @dev Explain to a developer any extra details
     function claimReward() external updateReward(msg.sender) {
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
